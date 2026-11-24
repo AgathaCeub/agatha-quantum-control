@@ -23,6 +23,18 @@ python main.py --semente 43
 
 Com a mesma semente e as mesmas ações nos mesmos instantes, o experimento se repete. As partículas decorativas continuam livres.
 
+## Caderno de bordo
+
+Ao terminar, a sala mostra a trajetória da temperatura, da contenção e do progresso. Também registra o tempo em equilíbrio, os extremos das leituras e cada comando com seu instante. Os eventos sorteados aparecem no registro para ajudar a entender o que mudou.
+
+O resumo compara o tempo em equilíbrio com a tentativa anterior do mesmo cenário, durante a sessão. Quando as sementes são diferentes, isso aparece na comparação. Na operação comum, uma nova semente é sorteada para cada tentativa e fica visível no diário; o parâmetro `--semente` fixa os eventos.
+
+Eventos e comandos usam sorteios separados. Apertar mais botões não troca a sequência de incidentes: duas estratégias podem enfrentar os mesmos eventos com a mesma semente.
+
+O botão **Salvar diário** exporta o resultado em JSON para `QuantumControlRoom/diarios`, dentro da sua pasta de usuário. Cada relatório recebe um arquivo próprio. A gravação acontece pelo botão e o jogo avisa se não conseguir salvar.
+
+As amostras são coletadas a cada segundo, nos comandos e no encerramento. Os extremos são acompanhados em todos os passos da simulação, incluindo picos entre duas amostras. O gráfico termina no instante do resultado, sem registrar tempo de tela de menu ou de encerramento.
+
 ## Uma decisão do jogo
 
 A simulação avança em passos de 1/60 de segundo. Antes, as leituras mudavam a cada quadro: um computador mais lento também deixava o experimento mais lento. Agora, a renderização e o tempo do experimento podem seguir ritmos diferentes. Cada próximo evento recebe seu intervalo uma única vez, entre 7 e 12 segundos.

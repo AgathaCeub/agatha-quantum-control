@@ -5,6 +5,8 @@ import sys
 
 import pygame
 
+from diario import CAMPOS, Diario
+
 
 # ============================================================
 # CONFIGURAÇÕES INICIAIS
@@ -215,8 +217,14 @@ class Particula:
 
 class Jogo:
     def __init__(self, semente=None):
+        self.semente_fixa = semente
         self.semente = semente
+        self.diario = None
+        self.diario_anterior = None
+        self.historico = {}
+        self.aviso_diario = ""
         self.sorteio = random.Random(semente)
+        self.sorteio_eventos = random.Random(semente)
         self.acumulador = 0
         self.proximo_evento = 0
         self.tela_atual = "menu"
@@ -299,6 +307,12 @@ class Jogo:
             AZUL
         )
 
+        self.botao_salvar = Botao(
+            850, 560, 300, 65,
+            "SALVAR DIÁRIO",
+            PAINEL_CLARO
+        )
+
         self.botao_menu = Botao(
             490, 645, 300, 45,
             "VOLTAR AO MENU",
@@ -306,9 +320,18 @@ class Jogo:
         )
 
     def iniciar_experimento(self, experimento):
+        if self.diario is not None and self.diario.resultado is not None:
+            self.historico[self.experimento] = self.diario
+        self.diario_anterior = self.historico.get(experimento)
+        self.aviso_diario = ""
+        self.botao_salvar.ativo = True
+        self.semente = self.semente_fixa
+        if self.semente is None:
+            self.semente = random.SystemRandom().randrange(2**32)
         self.sorteio.seed(self.semente)
+        self.sorteio_eventos.seed(self.semente + 1)
         self.acumulador = 0
-        self.proximo_evento = self.sorteio.uniform(7, 12)
+        self.proximo_evento = self.sorteio_eventos.uniform(7, 12)
         self.experimento = experimento
         self.tela_atual = "jogo"
         self.estado_final = None
@@ -323,6 +346,9 @@ class Jogo:
         self.contencao = 90
         self.anomalia = 8
         self.progresso = 0
+
+        self.diario = Diario(experimento, self.semente)
+        self.diario.observar(0, self.leituras())
 
         if experimento == "estrela":
             self.mensagem = (
@@ -354,6 +380,23 @@ class Jogo:
         self.mensagem = texto
         self.tempo_mensagem = 0
 
+    def leituras(self):
+        return {campo: getattr(self, campo) for campo in CAMPOS}
+
+    def registrar_operacao(self, acao):
+        for campo in CAMPOS:
+            setattr(self, campo, limitar(getattr(self, campo), 0, 100))
+        self.diario.registrar_operacao(self.tempo, acao, self.leituras())
+
+    def salvar_diario(self):
+        try:
+            self.diario.salvar()
+        except (OSError, ValueError):
+            self.aviso_diario = "Não foi possível salvar. Confira o acesso à pasta de diários e tente de novo."
+        else:
+            self.aviso_diario = "Diário salvo em QuantumControlRoom/diarios, na sua pasta de usuário."
+            self.botao_salvar.ativo = False
+
     def aumentar_energia(self):
         aumento = self.sorteio.randint(8, 15)
 
@@ -368,6 +411,8 @@ class Jogo:
             "temperatura e instabilidade."
         )
 
+        self.registrar_operacao("aumentar_energia")
+
     def resfriar(self):
         reducao = self.sorteio.randint(10, 18)
 
@@ -380,6 +425,8 @@ class Jogo:
             "O resfriamento protege o sistema, mas consome parte da energia."
         )
 
+        self.registrar_operacao("resfriar")
+
     def estabilizar(self):
         ganho = self.sorteio.randint(8, 15)
 
@@ -391,6 +438,8 @@ class Jogo:
             f"Campo estabilizado em {ganho}%. "
             "Estabilidade evita reações imprevisíveis, mas exige energia."
         )
+
+        self.registrar_operacao("estabilizar")
 
     def analisar(self):
         if self.sorteio.random() < 0.72:
@@ -411,6 +460,8 @@ class Jogo:
                 "alterar o resultado."
             )
 
+        self.registrar_operacao("analisar")
+
     def emergencia(self):
         self.energia -= 25
         self.temperatura -= 22
@@ -425,6 +476,8 @@ class Jogo:
 
         self.progresso -= 12
 
+        self.registrar_operacao("emergencia")
+
     def evento_aleatorio(self):
         eventos = [
             "oscilacao",
@@ -434,17 +487,17 @@ class Jogo:
             "interferencia"
         ]
 
-        evento = self.sorteio.choice(eventos)
+        evento = self.sorteio_eventos.choice(eventos)
 
         if evento == "oscilacao":
-            self.estabilidade -= self.sorteio.randint(5, 12)
+            self.estabilidade -= self.sorteio_eventos.randint(5, 12)
 
             self.definir_mensagem(
                 "ALERTA: uma oscilação inesperada reduziu a estabilidade."
             )
 
         elif evento == "falha_sensor":
-            self.anomalia += self.sorteio.randint(4, 9)
+            self.anomalia += self.sorteio_eventos.randint(4, 9)
 
             self.definir_mensagem(
                 "ALERTA: sensores apresentaram leituras contraditórias. "
@@ -452,8 +505,8 @@ class Jogo:
             )
 
         elif evento == "pulso":
-            self.energia += self.sorteio.randint(5, 12)
-            self.temperatura += self.sorteio.randint(4, 10)
+            self.energia += self.sorteio_eventos.randint(5, 12)
+            self.temperatura += self.sorteio_eventos.randint(4, 10)
 
             self.definir_mensagem(
                 "Um pulso energético atravessou o núcleo. "
@@ -461,19 +514,21 @@ class Jogo:
             )
 
         elif evento == "calmaria":
-            self.estabilidade += self.sorteio.randint(4, 10)
-            self.anomalia -= self.sorteio.randint(2, 7)
+            self.estabilidade += self.sorteio_eventos.randint(4, 10)
+            self.anomalia -= self.sorteio_eventos.randint(2, 7)
 
             self.definir_mensagem(
                 "O sistema entrou em uma fase de equilíbrio temporário."
             )
 
         elif evento == "interferencia":
-            self.contencao -= self.sorteio.randint(5, 12)
+            self.contencao -= self.sorteio_eventos.randint(5, 12)
 
             self.definir_mensagem(
                 "ALERTA: interferência externa detectada no campo de contenção."
             )
+
+        self.registrar_operacao("evento:" + evento)
 
     def atualizar(self, delta):
         if self.tela_atual != "jogo" or self.estado_final:
@@ -527,7 +582,7 @@ class Jogo:
         if self.tempo_evento >= self.proximo_evento:
             self.evento_aleatorio()
             self.tempo_evento -= self.proximo_evento
-            self.proximo_evento = self.sorteio.uniform(7, 12)
+            self.proximo_evento = self.sorteio_eventos.uniform(7, 12)
 
         # Limites
         self.temperatura = limitar(self.temperatura, 0, 100)
@@ -542,6 +597,7 @@ class Jogo:
         for particula in self.particulas:
             particula.atualizar(intensidade)
 
+        self.diario.observar(self.tempo, self.leituras(), condicao_segura, PASSO_SIMULACAO)
         self.verificar_final()
 
     def verificar_final(self):
@@ -562,6 +618,9 @@ class Jogo:
 
         elif self.energia <= 0:
             self.estado_final = "sem_energia"
+
+        if self.estado_final is not None and self.diario is not None:
+            self.diario.finalizar(self.tempo, self.estado_final, self.leituras())
 
     def desenhar_barra(self, nome, valor, x, y, invertido=False):
         largura = 250
@@ -955,6 +1014,11 @@ class Jogo:
             centralizado=True
         )
 
+        desenhar_texto(
+            f"DIÁRIO ATIVO  ·  {self.tempo:.1f}s  ·  SEMENTE {self.semente}",
+            FONTE_MICRO, CINZA, 70, 650
+        )
+
         # Barra inferior
         pygame.draw.rect(
             TELA,
@@ -1030,42 +1094,63 @@ class Jogo:
                 "progresso precisam compartilhar recursos limitados."
             )
 
-        desenhar_texto(
-            titulo,
-            FONTE_TITULO,
-            cor,
-            LARGURA // 2,
-            150,
-            centralizado=True
-        )
+        desenhar_texto(titulo, FONTE_TITULO, cor, LARGURA // 2, 115, centralizado=True)
+        pygame.draw.rect(TELA, PAINEL, (170, 190, 940, 340), border_radius=18)
+        pygame.draw.rect(TELA, BORDA, (170, 190, 940, 340), 2, border_radius=18)
+        desenhar_texto("CADERNO DE BORDO", FONTE_SUBTITULO, BRANCO, 200, 210)
 
-        pygame.draw.rect(
-            TELA,
-            PAINEL,
-            (290, 230, 700, 220),
-            border_radius=18
-        )
+        diario = self.diario
+        resumo = [
+            f"Duração: {self.tempo:.1f}s",
+            f"Em equilíbrio: {diario.tempo_em_equilibrio:.1f}s",
+            f"Pico de temperatura: {diario.pico_temperatura:.1f}%",
+            f"Menor contenção: {diario.menor_contencao:.1f}%",
+            f"Comandos: {sum(not op['acao'].startswith('evento:') for op in diario.operacoes)}",
+            f"Semente: {self.semente}",
+        ]
+        for i, linha in enumerate(resumo):
+            desenhar_texto(linha, FONTE_PEQUENA, CINZA, 200, 260 + i * 27)
 
-        pygame.draw.rect(
-            TELA,
-            cor,
-            (290, 230, 700, 220),
-            3,
-            border_radius=18
-        )
-
-        area = pygame.Rect(350, 285, 580, 120)
+        self.desenhar_grafico(pygame.Rect(515, 275, 555, 140))
+        if self.diario_anterior is not None:
+            anterior = self.diario_anterior
+            diferenca = diario.tempo_em_equilibrio - anterior.tempo_em_equilibrio
+            contexto = "mesma semente" if anterior.semente == diario.semente else "outra semente"
+            comparacao = f"Tentativa anterior ({contexto}): {diferenca:+.1f}s em equilíbrio"
+            desenhar_texto(comparacao, FONTE_MICRO, CINZA, 515, 437)
 
         desenhar_texto_quebrado(
-            explicacao,
-            FONTE_MEDIA,
-            BRANCO,
-            area,
-            espacamento=10
+            explicacao, FONTE_PEQUENA, BRANCO,
+            pygame.Rect(200, 470, 880, 50), espacamento=3
         )
-
         self.botao_reiniciar.desenhar()
+        self.botao_salvar.desenhar()
         self.botao_menu.desenhar()
+        desenhar_texto(self.aviso_diario, FONTE_MICRO, CINZA, 640, 635, centralizado=True)
+
+    def desenhar_grafico(self, area):
+        series = (("temperatura", "Temperatura", LARANJA),
+                  ("contencao", "Contenção", CIANO),
+                  ("progresso", "Progresso", VERDE))
+        for i, (_, nome, cor) in enumerate(series):
+            x = area.x + i * 185
+            pygame.draw.line(TELA, cor, (x, area.y - 17), (x + 16, area.y - 17), 2)
+            desenhar_texto(nome, FONTE_MICRO, CINZA, x + 22, area.y - 24)
+        for valor in (0, 50, 100):
+            y = area.bottom - valor / 100 * area.height
+            pygame.draw.line(TELA, PAINEL_CLARO, (area.x, y), (area.right, y))
+            desenhar_texto(str(valor), FONTE_MICRO, CINZA, area.x - 30, y - 7)
+        duracao = max(self.tempo, PASSO_SIMULACAO)
+        for campo, _, cor in series:
+            pontos = [
+                (area.x + amostra["segundos"] / duracao * area.width,
+                 area.bottom - amostra[campo] / 100 * area.height)
+                for amostra in self.diario.amostras
+            ]
+            if len(pontos) >= 2:
+                pygame.draw.lines(TELA, cor, False, pontos, 2)
+        desenhar_texto("0s", FONTE_MICRO, CINZA, area.x, area.bottom + 5)
+        desenhar_texto(f"{self.tempo:.1f}s", FONTE_MICRO, CINZA, area.right - 45, area.bottom + 5)
 
     def tratar_evento(self, evento):
         if evento.type == pygame.QUIT:
@@ -1086,6 +1171,9 @@ class Jogo:
             if self.estado_final:
                 if self.botao_reiniciar.foi_clicado(evento):
                     self.iniciar_experimento(self.experimento)
+
+                elif self.botao_salvar.foi_clicado(evento):
+                    self.salvar_diario()
 
                 elif self.botao_menu.foi_clicado(evento):
                     self.tela_atual = "menu"

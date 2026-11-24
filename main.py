@@ -1,3 +1,4 @@
+import argparse
 import math
 import random
 import sys
@@ -9,16 +10,10 @@ import pygame
 # CONFIGURAÇÕES INICIAIS
 # ============================================================
 
-pygame.init()
-
 LARGURA = 1280
 ALTURA = 720
 FPS = 60
-
-TELA = pygame.display.set_mode((LARGURA, ALTURA))
-pygame.display.set_caption("ÁGATHA: Quantum Control Room")
-
-RELOGIO = pygame.time.Clock()
+PASSO_SIMULACAO = 1 / 60
 
 
 # ============================================================
@@ -47,11 +42,20 @@ PRETO = (0, 0, 0)
 # FONTES
 # ============================================================
 
-FONTE_TITULO = pygame.font.SysFont("arial", 45, bold=True)
-FONTE_SUBTITULO = pygame.font.SysFont("arial", 25, bold=True)
-FONTE_MEDIA = pygame.font.SysFont("arial", 20)
-FONTE_PEQUENA = pygame.font.SysFont("arial", 16)
-FONTE_MICRO = pygame.font.SysFont("arial", 13)
+def preparar_interface():
+    global TELA, RELOGIO
+    global FONTE_TITULO, FONTE_SUBTITULO, FONTE_MEDIA, FONTE_PEQUENA, FONTE_MICRO
+
+    pygame.init()
+    TELA = pygame.display.set_mode((LARGURA, ALTURA))
+    pygame.display.set_caption("ÁGATHA: Quantum Control Room")
+    RELOGIO = pygame.time.Clock()
+
+    FONTE_TITULO = pygame.font.SysFont("arial", 45, bold=True)
+    FONTE_SUBTITULO = pygame.font.SysFont("arial", 25, bold=True)
+    FONTE_MEDIA = pygame.font.SysFont("arial", 20)
+    FONTE_PEQUENA = pygame.font.SysFont("arial", 16)
+    FONTE_MICRO = pygame.font.SysFont("arial", 13)
 
 
 # ============================================================
@@ -210,7 +214,11 @@ class Particula:
 # ============================================================
 
 class Jogo:
-    def __init__(self):
+    def __init__(self, semente=None):
+        self.semente = semente
+        self.sorteio = random.Random(semente)
+        self.acumulador = 0
+        self.proximo_evento = 0
         self.tela_atual = "menu"
         self.experimento = None
 
@@ -298,6 +306,9 @@ class Jogo:
         )
 
     def iniciar_experimento(self, experimento):
+        self.sorteio.seed(self.semente)
+        self.acumulador = 0
+        self.proximo_evento = self.sorteio.uniform(7, 12)
         self.experimento = experimento
         self.tela_atual = "jogo"
         self.estado_final = None
@@ -344,12 +355,12 @@ class Jogo:
         self.tempo_mensagem = 0
 
     def aumentar_energia(self):
-        aumento = random.randint(8, 15)
+        aumento = self.sorteio.randint(8, 15)
 
         self.energia += aumento
-        self.temperatura += random.randint(5, 11)
-        self.estabilidade -= random.randint(2, 7)
-        self.anomalia += random.randint(1, 5)
+        self.temperatura += self.sorteio.randint(5, 11)
+        self.estabilidade -= self.sorteio.randint(2, 7)
+        self.anomalia += self.sorteio.randint(1, 5)
 
         self.definir_mensagem(
             f"Energia elevada em {aumento}%. "
@@ -358,11 +369,11 @@ class Jogo:
         )
 
     def resfriar(self):
-        reducao = random.randint(10, 18)
+        reducao = self.sorteio.randint(10, 18)
 
         self.temperatura -= reducao
-        self.energia -= random.randint(2, 6)
-        self.contencao += random.randint(1, 4)
+        self.energia -= self.sorteio.randint(2, 6)
+        self.contencao += self.sorteio.randint(1, 4)
 
         self.definir_mensagem(
             f"Temperatura reduzida em {reducao}%. "
@@ -370,11 +381,11 @@ class Jogo:
         )
 
     def estabilizar(self):
-        ganho = random.randint(8, 15)
+        ganho = self.sorteio.randint(8, 15)
 
         self.estabilidade += ganho
-        self.contencao += random.randint(4, 9)
-        self.energia -= random.randint(3, 8)
+        self.contencao += self.sorteio.randint(4, 9)
+        self.energia -= self.sorteio.randint(3, 8)
 
         self.definir_mensagem(
             f"Campo estabilizado em {ganho}%. "
@@ -382,17 +393,17 @@ class Jogo:
         )
 
     def analisar(self):
-        if random.random() < 0.72:
-            reducao = random.randint(5, 12)
+        if self.sorteio.random() < 0.72:
+            reducao = self.sorteio.randint(5, 12)
             self.anomalia -= reducao
-            self.estabilidade += random.randint(2, 6)
+            self.estabilidade += self.sorteio.randint(2, 6)
 
             self.definir_mensagem(
                 f"Análise concluída. A anomalia foi reduzida em {reducao}%. "
                 "Observar o sistema antes de agir diminui a incerteza."
             )
         else:
-            self.anomalia += random.randint(5, 11)
+            self.anomalia += self.sorteio.randint(5, 11)
 
             self.definir_mensagem(
                 "A medição interferiu no experimento! "
@@ -423,17 +434,17 @@ class Jogo:
             "interferencia"
         ]
 
-        evento = random.choice(eventos)
+        evento = self.sorteio.choice(eventos)
 
         if evento == "oscilacao":
-            self.estabilidade -= random.randint(5, 12)
+            self.estabilidade -= self.sorteio.randint(5, 12)
 
             self.definir_mensagem(
                 "ALERTA: uma oscilação inesperada reduziu a estabilidade."
             )
 
         elif evento == "falha_sensor":
-            self.anomalia += random.randint(4, 9)
+            self.anomalia += self.sorteio.randint(4, 9)
 
             self.definir_mensagem(
                 "ALERTA: sensores apresentaram leituras contraditórias. "
@@ -441,8 +452,8 @@ class Jogo:
             )
 
         elif evento == "pulso":
-            self.energia += random.randint(5, 12)
-            self.temperatura += random.randint(4, 10)
+            self.energia += self.sorteio.randint(5, 12)
+            self.temperatura += self.sorteio.randint(4, 10)
 
             self.definir_mensagem(
                 "Um pulso energético atravessou o núcleo. "
@@ -450,15 +461,15 @@ class Jogo:
             )
 
         elif evento == "calmaria":
-            self.estabilidade += random.randint(4, 10)
-            self.anomalia -= random.randint(2, 7)
+            self.estabilidade += self.sorteio.randint(4, 10)
+            self.anomalia -= self.sorteio.randint(2, 7)
 
             self.definir_mensagem(
                 "O sistema entrou em uma fase de equilíbrio temporário."
             )
 
         elif evento == "interferencia":
-            self.contencao -= random.randint(5, 12)
+            self.contencao -= self.sorteio.randint(5, 12)
 
             self.definir_mensagem(
                 "ALERTA: interferência externa detectada no campo de contenção."
@@ -468,9 +479,19 @@ class Jogo:
         if self.tela_atual != "jogo" or self.estado_final:
             return
 
-        self.tempo += delta
-        self.tempo_evento += delta
-        self.tempo_mensagem += delta
+        if not math.isfinite(delta) or delta <= 0:
+            return
+
+        self.acumulador += delta
+        while self.acumulador + 1e-10 >= PASSO_SIMULACAO and not self.estado_final:
+            self.acumulador = max(0, self.acumulador - PASSO_SIMULACAO)
+            self.avancar_passo()
+
+    def avancar_passo(self):
+        # A tela pode desenhar em outro FPS; o experimento mantém o mesmo ritmo.
+        self.tempo += PASSO_SIMULACAO
+        self.tempo_evento += PASSO_SIMULACAO
+        self.tempo_mensagem += PASSO_SIMULACAO
 
         # Mudanças naturais do sistema
         self.temperatura += self.energia * 0.0018
@@ -503,9 +524,10 @@ class Jogo:
             self.progresso -= 0.006
 
         # Eventos aleatórios
-        if self.tempo_evento >= random.uniform(7, 12):
+        if self.tempo_evento >= self.proximo_evento:
             self.evento_aleatorio()
-            self.tempo_evento = 0
+            self.tempo_evento -= self.proximo_evento
+            self.proximo_evento = self.sorteio.uniform(7, 12)
 
         # Limites
         self.temperatura = limitar(self.temperatura, 0, 100)
@@ -1099,15 +1121,25 @@ class Jogo:
 # LOOP PRINCIPAL
 # ============================================================
 
-jogo = Jogo()
+def executar():
+    argumentos = argparse.ArgumentParser(description="Sala de controle experimental da Ágatha")
+    argumentos.add_argument("--semente", type=int, help="Repete a sequência de eventos ao reiniciar")
+    opcoes = argumentos.parse_args()
 
-while True:
-    delta = RELOGIO.tick(FPS) / 1000
+    preparar_interface()
+    jogo = Jogo(semente=opcoes.semente)
 
-    for evento in pygame.event.get():
-        jogo.tratar_evento(evento)
+    while True:
+        delta = RELOGIO.tick(FPS) / 1000
 
-    jogo.atualizar(delta)
-    jogo.desenhar()
+        for evento in pygame.event.get():
+            jogo.tratar_evento(evento)
 
-    pygame.display.flip()
+        jogo.atualizar(delta)
+        jogo.desenhar()
+        pygame.display.flip()
+
+
+if __name__ == "__main__":
+    executar()
+

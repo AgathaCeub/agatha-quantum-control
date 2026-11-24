@@ -53,11 +53,11 @@ class TempoDoExperimento(unittest.TestCase):
 
     def test_intervalo_do_evento_nao_e_sorteado_a_cada_quadro(self):
         jogo = experimento()
-        jogo.sorteio.uniform = Mock(return_value=9)
+        jogo.sorteio_eventos.uniform = Mock(return_value=9)
         jogo.atualizar(1)
-        jogo.sorteio.uniform.assert_not_called()
+        jogo.sorteio_eventos.uniform.assert_not_called()
         jogo.atualizar(11)
-        jogo.sorteio.uniform.assert_called_once_with(7, 12)
+        jogo.sorteio_eventos.uniform.assert_called_once_with(7, 12)
 
     def test_reiniciar_repete_eventos_e_acoes_da_mesma_semente(self):
         jogo = experimento()

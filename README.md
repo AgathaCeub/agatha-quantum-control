@@ -1,14 +1,37 @@
 # Ágatha · Quantum Control Room
 
+[![Testes](https://github.com/AgathaCeub/agatha-quantum-control/actions/workflows/tests.yml/badge.svg)](https://github.com/AgathaCeub/agatha-quantum-control/actions/workflows/tests.yml)
+
 Uma sala de comando para brincar com uma ideia: o que acontece quando tento controlar algo que não para de mudar?
 
 O jogo tem três cenários: reator estelar, singularidade e núcleo quântico. A operação depende de energia, temperatura, estabilidade, contenção e anomalia. Chegar a 100% de progresso exige cuidar dessas leituras ao mesmo tempo.
 
 É um jogo de ficção científica em Python e Pygame. Os indicadores são regras do jogo, não grandezas de uma simulação física.
 
+![Sala de comando do cenário Singularidade, com leituras e botões de operação](quantum-control-room.png)
+
+## O que controlar
+
+| Comando | Decisão durante a tentativa |
+| --- | --- |
+| Aumentar energia | Acelerar o progresso, acompanhando temperatura e estabilidade. |
+| Ativar resfriamento | Reduzir a temperatura usando parte da energia disponível. |
+| Estabilizar campo | Reforçar estabilidade e contenção. |
+| Analisar anomalia | Investigar o sistema, com risco de interferir nele. |
+| Protocolo de emergência | Conter uma situação crítica com um custo de recursos. |
+
 ## Rodar
 
-Python 3.10 ou mais recente:
+Python 3.10 ou mais recente, com Pygame 2.6.1. Baixe o ZIP em **Code → Download ZIP**, extraia e abra o terminal na pasta que contém `main.py`.
+
+No Windows:
+
+```bat
+py -m pip install -r requirements.txt
+py main.py
+```
+
+No macOS ou Linux, usando o Python do seu ambiente:
 
 ```sh
 python -m pip install -r requirements.txt
@@ -44,3 +67,12 @@ Os testes comparam os mesmos vinte segundos em 30, 60 e 144 FPS, além de quadro
 ```sh
 python -m unittest discover -s tests -v
 ```
+
+## Organização e verificação
+
+- [`main.py`](main.py): cenários, controles, interface e avanço em passos fixos.
+- [`diario.py`](diario.py): amostras, resumo da tentativa e exportação em JSON.
+- [`tests/`](tests): 15 testes sobre tempo, comandos, eventos e integridade dos relatórios.
+
+O GitHub Actions executa a suíte em Python 3.10 e 3.12 no Linux a cada alteração da `main` e a cada pull request. O selo no início desta página mostra o resultado real da execução. Esses testes verificam regras e registros; não substituem a conferência visual do jogo em cada sistema operacional.
+
